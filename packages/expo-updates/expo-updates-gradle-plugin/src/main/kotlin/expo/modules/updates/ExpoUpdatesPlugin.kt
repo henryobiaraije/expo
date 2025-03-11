@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Locale
+import java.util.Properties
 
 abstract class ExpoUpdatesPlugin : Plugin<Project> {
   override fun apply(project: Project) {
@@ -26,7 +27,7 @@ abstract class ExpoUpdatesPlugin : Plugin<Project> {
     val entryFile = detectedEntryFile(reactExtension)
     val androidComponents = project.extensions.getByType(AndroidComponentsExtension::class.java)
 
-    if (System.getenv("EX_UPDATES_NATIVE_DEBUG") == "1") {
+    if (isNativeDebuggingEnabled(reactExtension)) {
       logger.warn("Disable all react.debuggableVariants because EX_UPDATES_NATIVE_DEBUG=1")
       reactExtension.debuggableVariants.set(listOf())
     }
@@ -125,4 +126,23 @@ private fun detectedEntryFile(config: ReactExtension): File {
     File(reactRoot, "index.android.js").exists() -> File(reactRoot, "index.android.js")
     else -> File(reactRoot, "index.js")
   }
+}
+
+private fun isNativeDebuggingEnabled(config: ReactExtension): Boolean {
+  if (System.getenv("EX_UPDATES_NATIVE_DEBUG") == "1") {
+    return true
+  }
+  val properties = Properties()
+  val reactRoot = config.root.get().asFile
+  val androidRoot = File(reactRoot, "android")
+  val gradlePropertiesFile = File(androidRoot, "gradle.properties")
+  when (gradlePropertiesFile.exists()) {
+    true -> {
+      properties.load(gradlePropertiesFile.inputStream())
+      val stringValue = properties.getProperty("EX_UPDATES_NATIVE_DEBUG")
+      return stringValue == "true"
+    }
+    else -> return false
+  }
+  return false
 }
